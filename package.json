@@ -1,16 +1,16 @@
 {
   "name": "aibankeragent",
   "version": "1.0.0",
+  "description": "A program to connect to bank APIs and analyze spending",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [],
-  "author": "Tiltan Yaniv& Idan Agami",
+  "author": "Tiltan Yaniv",
   "license": "MIT",
-  "description": "",
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "israeli-bank-scrapers": "^5.2.3"
+    "israeli-bank-scrapers": "^5.2.3",
+    "dotenv": "^16.0.3"
   }
 }
