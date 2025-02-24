@@ -12,7 +12,7 @@ dotenv.config();
       combineInstallments: false,
       showBrowser: true,
     };
-
+    
     const credentials = {
       username: process.env.BANK_USERNAME,
       password: process.env.BANK_PASSWORD,
