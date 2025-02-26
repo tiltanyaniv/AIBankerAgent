@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Float, DateTime, LargeBinary
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -19,6 +19,8 @@ class Transaction(Base):
     description = Column(String)
     category = Column(String)
     date = Column(DateTime, default=datetime.datetime.utcnow)
+    location = Column(String, nullable=True)  # Store extracted location
+    vector_embedding = Column(LargeBinary, nullable=True)  # Store full vector embedding
     original_currency = Column(String)
 
     user = relationship("User", back_populates="transactions")
