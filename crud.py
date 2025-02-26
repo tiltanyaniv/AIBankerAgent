@@ -139,3 +139,28 @@ def create_transaction_vector(original_currency, description, category):
     """
     text_data = f"{original_currency}, {description}, {category}"
     return get_embedding(text_data)
+
+
+def convert_to_usd(amount: float, original_currency: str) -> float:
+    """
+    Converts an amount from the original currency to US dollars.
+    
+    Args:
+        amount (float): The amount in the original currency.
+        original_currency (str): The 3-letter ISO code for the original currency (e.g., "EUR", "GBP").
+    
+    Returns:
+        float: The equivalent amount in US dollars.
+    """
+    c = CurrencyRates()
+    try:
+        # If the original currency is already USD, return the amount as is.
+        if original_currency.upper() == "USD":
+            return amount
+        # Get the conversion rate from the original currency to USD.
+        rate = c.get_rate(original_currency.upper(), "USD")
+        return amount * rate
+    except Exception as e:
+        print(f"Error converting currency from {original_currency} to USD: {e}")
+        # Optionally, you could raise the exception or return the original amount.
+        return amount

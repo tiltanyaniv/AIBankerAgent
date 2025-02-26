@@ -6,3 +6,4 @@ openai
 scikit-learn
 geopy
 forex
+geopy
