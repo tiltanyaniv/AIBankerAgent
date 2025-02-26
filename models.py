@@ -4,14 +4,14 @@ from database import Base
 import datetime
 
 class User(Base):
-    _tablename_ = "users"
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     transactions = relationship("Transaction", back_populates="user")
 
 class Transaction(Base):
-    _tablename_ = "transactions"
+    __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))

@@ -5,5 +5,4 @@ numpy
 openai
 scikit-learn
 geopy
-forex
-geopy
+forex-python

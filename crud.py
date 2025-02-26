@@ -8,6 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 from geopy.geocoders import Nominatim
+from forex_python.converter import CurrencyRates
 
 
 
@@ -59,7 +60,7 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
 
                 new_transaction = Transaction(
                     user_id=user.id,
-                    charged_amount=transaction["chargedAmount"],
+                    charged_amount=convert_to_usd(transaction["chargedAmount"], original_currency),
                     description=description,
                     category=category,
                     date=transaction_date,
