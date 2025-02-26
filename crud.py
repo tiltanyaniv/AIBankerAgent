@@ -25,7 +25,8 @@ def create_user(db: Session, account_number: str):
 
 def save_transactions_from_json(db: Session, file_path: str = "transactions.json"):
     """
-    Reads transactions from JSON, extracts store locations, generates embeddings, and saves them to the database.
+    Reads transactions from JSON, extracts store locations, generates embeddings,
+    and saves them to the database with latitude & longitude.
     """
     try:
         with open(file_path, "r", encoding="utf-8") as file:
@@ -48,11 +49,13 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
                 original_currency = transaction["originalCurrency"]
                 category = transaction["category"]
 
-                # Extract store location using OpenAI
-                location = get_location(description)
+                # Get location and coordinates
+                location_data = get_location(description)
+                location = location_data
+                location_lat, location_lon = get_location_coordinates(location)
 
                 # Generate a transaction vector embedding
-                vector_embedding = create_transaction_vector(original_currency, description, category, location).tobytes()
+                vector_embedding = create_transaction_vector(original_currency, description, category).tobytes()
 
                 new_transaction = Transaction(
                     user_id=user.id,
@@ -62,19 +65,21 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
                     date=transaction_date,
                     original_currency=original_currency,
                     location=location,
+                    location_lat=location_lat,
+                    location_lon=location_lon,
                     vector_embedding=vector_embedding
                 )
 
                 db.add(new_transaction)
 
         db.commit()
-        return {"status": "success", "message": "Transactions saved with location and embeddings."}
+        return {"status": "success", "message": "Transactions saved with location coordinates."}
 
     except Exception as e:
         db.rollback()
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e)}       
 
-# Load OpenAI API Key from .env
+ # Load OpenAI API Key from .env
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -101,13 +106,15 @@ def get_location(description):
 def get_location_coordinates(location_str: str):
     """
     Fetch latitude and longitude for a given location string using Nominatim.
-    Returns a tuple (latitude, longitude) or (None, None) if not found.
+    Returns a tuple (latitude, longitude) as floats, or (None, None) if not found.
     """
     geolocator = Nominatim(user_agent="AIBankerAgent")
     try:
         geo_location = geolocator.geocode(location_str)
         if geo_location:
-            return geo_location.latitude, geo_location.longitude
+            lat = float(geo_location.latitude)
+            lon = float(geo_location.longitude)
+            return lat, lon
         else:
             return None, None
     except Exception as e:
@@ -120,76 +127,15 @@ def get_embedding(text):
     """
     client = openai.OpenAI()  # The new API requires creating a client instance
     response = client.embeddings.create(
-        model="text-embedding-3-small",  # Use the latest embedding model
+        model="text-embedding-3-large",  # Use the latest embedding model
         input=[text],  # Ensure input is a list
         encoding_format="float"  # Specify encoding format to ensure numerical output
     )
     return np.array(response.data[0].embedding, dtype=np.float32)
-def create_transaction_vector(original_currency, description, category, location):
+
+def create_transaction_vector(original_currency, description, category):
     """
     Creates a vector representation combining all relevant transaction details.
     """
-    text_data = f"{original_currency}, {description}, {category}, {location}"
+    text_data = f"{original_currency}, {description}, {category}"
     return get_embedding(text_data)
-
-def detect_unusual_transactions(db: Session, threshold=0.2):
-    """
-    Detects transactions with unusual vectors using OpenAI embeddings.
-    """
-    transactions = db.query(Transaction).filter(Transaction.vector_embedding.isnot(None)).all()
-
-    if len(transactions) < 2:
-        return {"message": "Not enough transactions to analyze."}
-
-    # Convert stored embeddings back to numpy arrays
-    embeddings = np.array([np.frombuffer(t.vector_embedding, dtype=np.float32) for t in transactions])
-
-    # Calculate cosine similarity matrix
-    similarity_matrix = cosine_similarity(embeddings)
-
-    # Find the lowest similarity for each transaction
-    min_similarities = np.min(similarity_matrix + np.eye(len(transactions)), axis=1)
-
-    # Flag transactions with low similarity scores
-    unusual_transactions = [
-        {
-            "id": transactions[i].id,
-            "description": transactions[i].description,
-            "category": transactions[i].category,
-            "location": transactions[i].location,
-            "charged_amount": transactions[i].charged_amount,
-            "similarity_score": float(min_similarities[i])
-        }
-        for i in range(len(transactions)) if min_similarities[i] < threshold
-    ]
-
-    return {
-        "total_transactions": len(transactions),
-        "unusual_transactions": unusual_transactions
-    }
-
-from forex_python.converter import CurrencyRates
-
-def convert_to_usd(amount: float, original_currency: str) -> float:
-    """
-    Converts an amount from the original currency to US dollars.
-    
-    Args:
-        amount (float): The amount in the original currency.
-        original_currency (str): The 3-letter ISO code for the original currency (e.g., "EUR", "GBP").
-    
-    Returns:
-        float: The equivalent amount in US dollars.
-    """
-    c = CurrencyRates()
-    try:
-        # If the original currency is already USD, return the amount as is.
-        if original_currency.upper() == "USD":
-            return amount
-        # Get the conversion rate from the original currency to USD.
-        rate = c.get_rate(original_currency.upper(), "USD")
-        return amount * rate
-    except Exception as e:
-        print(f"Error converting currency from {original_currency} to USD: {e}")
-        # Optionally, you could raise the exception or return the original amount.
-        return amount
