@@ -25,7 +25,8 @@ def create_user(db: Session, account_number: str):
 
 def save_transactions_from_json(db: Session, file_path: str = "transactions.json"):
     """
-    Reads transactions from JSON, extracts store locations, generates embeddings, and saves them to the database.
+    Reads transactions from JSON, extracts store locations, converts charged amounts to USD,
+    generates embeddings, and saves the data to the database.
     """
     try:
         with open(file_path, "r", encoding="utf-8") as file:
@@ -46,29 +47,37 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
                 transaction_date = datetime.strptime(transaction["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
                 description = transaction["description"]
                 original_currency = transaction["originalCurrency"]
-                category = transaction["category"]
+                charged_amount = transaction["chargedAmount"]
+
+                # Convert the charged amount to USD.
+                usd_charged_amount = convert_to_usd(charged_amount, original_currency)
 
                 # Extract store location using OpenAI
                 location = get_location(description)
 
+                # Get latitude and longitude using Nominatim (if needed)
+                location_lat, location_lon = get_location_coordinates(location)
+
                 # Generate a transaction vector embedding
-                vector_embedding = create_transaction_vector(original_currency, description, category, location).tobytes()
+                vector_embedding = create_transaction_vector(original_currency, description, transaction["category"], location).tobytes()
 
                 new_transaction = Transaction(
                     user_id=user.id,
-                    charged_amount=transaction["chargedAmount"],
+                    charged_amount=usd_charged_amount,  # Now in USD
                     description=description,
-                    category=category,
+                    category=transaction["category"],
                     date=transaction_date,
                     original_currency=original_currency,
                     location=location,
+                    location_lat=location_lat,
+                    location_lon=location_lon,
                     vector_embedding=vector_embedding
                 )
 
                 db.add(new_transaction)
 
         db.commit()
-        return {"status": "success", "message": "Transactions saved with location and embeddings."}
+        return {"status": "success", "message": "Transactions saved with converted amounts, location, and embeddings."}
 
     except Exception as e:
         db.rollback()
@@ -167,3 +176,29 @@ def detect_unusual_transactions(db: Session, threshold=0.2):
         "total_transactions": len(transactions),
         "unusual_transactions": unusual_transactions
     }
+
+from forex_python.converter import CurrencyRates
+
+def convert_to_usd(amount: float, original_currency: str) -> float:
+    """
+    Converts an amount from the original currency to US dollars.
+    
+    Args:
+        amount (float): The amount in the original currency.
+        original_currency (str): The 3-letter ISO code for the original currency (e.g., "EUR", "GBP").
+    
+    Returns:
+        float: The equivalent amount in US dollars.
+    """
+    c = CurrencyRates()
+    try:
+        # If the original currency is already USD, return the amount as is.
+        if original_currency.upper() == "USD":
+            return amount
+        # Get the conversion rate from the original currency to USD.
+        rate = c.get_rate(original_currency.upper(), "USD")
+        return amount * rate
+    except Exception as e:
+        print(f"Error converting currency from {original_currency} to USD: {e}")
+        # Optionally, you could raise the exception or return the original amount.
+        return amount
