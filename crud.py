@@ -7,6 +7,8 @@ from models import User, Transaction
 from datetime import datetime
 from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
+from geopy.geocoders import Nominatim
+
 
 
 def create_user(db: Session, account_number: str):
@@ -94,6 +96,23 @@ def get_location(description):
         return response.choices[0].message.content.strip()
     except Exception as e:
         return "Unknown"
+    
+
+def get_location_coordinates(location_str: str):
+    """
+    Fetch latitude and longitude for a given location string using Nominatim.
+    Returns a tuple (latitude, longitude) or (None, None) if not found.
+    """
+    geolocator = Nominatim(user_agent="AIBankerAgent")
+    try:
+        geo_location = geolocator.geocode(location_str)
+        if geo_location:
+            return geo_location.latitude, geo_location.longitude
+        else:
+            return None, None
+    except Exception as e:
+        print(f"Error retrieving geocode for {location_str}: {e}")
+        return None, None
 
 def get_embedding(text):
     """
