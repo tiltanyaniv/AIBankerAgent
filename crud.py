@@ -101,26 +101,8 @@ def get_location(description):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-<<<<<<< HEAD
                 {"role": "system", "content": "You are an assistant that analyzes transaction descriptions and determines if the purchase was made online or in a physical location."},
                 {"role": "user", "content": f"Was the following purchase made online or in a physical store? Description: '{description}' Please respond with either 'Online Purchase' or 'Physical Store'."}
-=======
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an assistant that extracts store locations from transaction descriptions. "
-                        "Only return the city name or the country name, nothing else."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"Where is the store location for this transaction: '{description}'? "
-                        "Provide only the city name or the country name. "
-                        "Do not include any extra words or explanations."
-                    ),
-                },
->>>>>>> 25c58ccb7f2e661957a9a04a98d8e22931522795
             ]
         )
         result = response.choices[0].message.content.strip()
