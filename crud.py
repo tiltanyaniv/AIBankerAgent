@@ -1,15 +1,20 @@
 import json
+import os
+import requests
 import numpy as np
 import openai
-import os
 from sqlalchemy.orm import Session
 from models import User, Transaction
 from datetime import datetime
 from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 from geopy.geocoders import Nominatim
-from forex_python.converter import CurrencyRates
 
+# Load OpenAI API Key from .env
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+from openai import OpenAI
 
 
 def create_user(db: Session, account_number: str):
@@ -24,10 +29,11 @@ def create_user(db: Session, account_number: str):
     db.refresh(user)
     return user
 
+
 def save_transactions_from_json(db: Session, file_path: str = "transactions.json"):
     """
     Reads transactions from JSON, extracts store locations, generates embeddings,
-    and saves them to the database with latitude & longitude.
+    and saves them to the database with latitude & longitude (and USD-converted amounts).
     """
     try:
         with open(file_path, "r", encoding="utf-8") as file:
@@ -58,9 +64,12 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
                 # Generate a transaction vector embedding
                 vector_embedding = create_transaction_vector(original_currency, description, category).tobytes()
 
+                # Convert the original amount to USD
+                usd_amount = convert_to_usd(transaction["chargedAmount"], original_currency)
+
                 new_transaction = Transaction(
                     user_id=user.id,
-                    charged_amount=convert_to_usd(transaction["chargedAmount"], original_currency),
+                    charged_amount=usd_amount,
                     description=description,
                     category=category,
                     date=transaction_date,
@@ -74,17 +83,12 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
                 db.add(new_transaction)
 
         db.commit()
-        return {"status": "success", "message": "Transactions saved with location coordinates."}
+        return {"status": "success", "message": "Transactions saved with location coordinates and USD amounts."}
 
     except Exception as e:
         db.rollback()
-        return {"status": "error", "message": str(e)}       
+        return {"status": "error", "message": str(e)}
 
- # Load OpenAI API Key from .env
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-from openai import OpenAI
 
 def get_location(description):
     """
@@ -97,8 +101,26 @@ def get_location(description):
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
+<<<<<<< HEAD
                 {"role": "system", "content": "You are an assistant that analyzes transaction descriptions and determines if the purchase was made online or in a physical location."},
                 {"role": "user", "content": f"Was the following purchase made online or in a physical store? Description: '{description}' Please respond with either 'Online Purchase' or 'Physical Store'."}
+=======
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an assistant that extracts store locations from transaction descriptions. "
+                        "Only return the city name or the country name, nothing else."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Where is the store location for this transaction: '{description}'? "
+                        "Provide only the city name or the country name. "
+                        "Do not include any extra words or explanations."
+                    ),
+                },
+>>>>>>> 25c58ccb7f2e661957a9a04a98d8e22931522795
             ]
         )
         result = response.choices[0].message.content.strip()
@@ -119,7 +141,7 @@ def get_location(description):
     except Exception as e:
         print(f"Error detecting location: {e}")
         return "Unknown"
-    
+
 
 def get_location_coordinates(location_str: str):
     """
@@ -139,6 +161,7 @@ def get_location_coordinates(location_str: str):
         print(f"Error retrieving geocode for {location_str}: {e}")
         return None, None
 
+
 def get_embedding(text):
     """
     Generate an embedding for a given text using OpenAI's updated API.
@@ -151,6 +174,7 @@ def get_embedding(text):
     )
     return np.array(response.data[0].embedding, dtype=np.float32)
 
+
 def create_transaction_vector(original_currency, description, category):
     """
     Creates a vector representation combining all relevant transaction details.
@@ -161,24 +185,29 @@ def create_transaction_vector(original_currency, description, category):
 
 def convert_to_usd(amount: float, original_currency: str) -> float:
     """
-    Converts an amount from the original currency to US dollars.
-    
-    Args:
-        amount (float): The amount in the original currency.
-        original_currency (str): The 3-letter ISO code for the original currency (e.g., "EUR", "GBP").
-    
-    Returns:
-        float: The equivalent amount in US dollars.
+    Converts an amount from the original currency to US dollars using exchangerate-api.com.
+    Always uses ILS as the base and returns the converted amount without printing debug info.
     """
-    c = CurrencyRates()
+    if original_currency.upper() == "USD":
+        return amount
+
+    # Build the URL using the original currency as the base.
+    url = f"https://api.exchangerate-api.com/v4/latest/{original_currency.upper()}"
     try:
-        # If the original currency is already USD, return the amount as is.
-        if original_currency.upper() == "USD":
-            return amount
-        # Get the conversion rate from the original currency to USD.
-        rate = c.get_rate(original_currency.upper(), "USD")
-        return amount * rate
+        response = requests.get(url)
+        data = response.json()
+        # Remove or comment out the debug print:
+        # print("DEBUG: exchangerate-api.com response:", data)
+        
+        rates = data.get("rates", {})
+        rate_usd = rates.get("USD")
+        if rate_usd is None:
+            raise Exception("Conversion rate not found for USD.")
+        
+        return amount * rate_usd
+
     except Exception as e:
-        print(f"Error converting currency from {original_currency} to USD: {e}")
-        # Optionally, you could raise the exception or return the original amount.
+        # Optionally, log the error using a logging framework if needed.
+        # For now, we'll just return the original amount.
+        # print(f"Error converting currency from {original_currency} to USD: {e}")
         return amount
