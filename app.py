@@ -68,10 +68,13 @@ def set_credentials(credentials: Credentials):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+@app.get("/analyze-transactions/{user_id}")
+def analyze_transactions_endpoint(user_id: int, db: Session = Depends(get_db)):
+    try:
+        result = crud.analyze_transactions(db, user_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/detect-unusual-transactions/")
-def detect_unusual(db: Session = Depends(get_db), threshold: float = 0.2):
-    """
-    Detect unusual transactions based on transaction vectors using OpenAI embeddings.
-    """
-    return crud.detect_unusual_transactions(db, threshold)
+
+

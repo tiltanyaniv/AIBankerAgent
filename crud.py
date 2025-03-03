@@ -9,6 +9,12 @@ from datetime import datetime
 from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 from geopy.geocoders import Nominatim
+import pandas as pd
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import NearestNeighbors
+import matplotlib.pyplot as plt
+from sqlalchemy import text
 
 # Load OpenAI API Key from .env
 load_dotenv()
@@ -56,6 +62,7 @@ def save_transactions_from_json(db: Session, file_path: str = "transactions.json
                 original_currency = transaction["originalCurrency"]
                 category = transaction["category"]
 
+                # Get location and coordinates
                 # Get location and coordinates
                 location_data = get_location(description)
                 location = location_data
@@ -114,7 +121,7 @@ def get_location(description):
             location_response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are an assistant that extracts store locations from transaction descriptions. Only return the city name or the country name (whichever is available). No explanations, just the location."},
+                    {"role": "system", "content": "You are an assistant that extracts store locations from transaction descriptions.Ignore business names and return only the city or country. Only return the city name or the country name (whichever is available). No explanations, just the location."},
                     {"role": "user", "content": f"Where is the store location for this transaction: '{description}'?"}
                 ]
             )
@@ -128,8 +135,16 @@ def get_location(description):
 def get_location_coordinates(location_str: str):
     """
     Fetch latitude and longitude for a given location string using Nominatim.
-    Returns a tuple (latitude, longitude) as floats, or (None, None) if not found.
+    Returns a tuple (latitude, longitude) as floats.
+    If the location is 'Online Purchase' or unknown, returns default coordinates.
     """
+    # Define default coordinates for online/unknown locations
+    default_coords = (0.0, 0.0)  # or use (lat, lon) for a default country center
+
+    # If the location string is empty or clearly indicates an online transaction, return defaults
+    if not location_str or location_str.strip().lower() in ["Unknown", "online purchase"]:
+        return default_coords
+
     geolocator = Nominatim(user_agent="AIBankerAgent")
     try:
         geo_location = geolocator.geocode(location_str)
@@ -138,10 +153,10 @@ def get_location_coordinates(location_str: str):
             lon = float(geo_location.longitude)
             return lat, lon
         else:
-            return None, None
+            return default_coords
     except Exception as e:
         print(f"Error retrieving geocode for {location_str}: {e}")
-        return None, None
+        return default_coords
 
 
 def get_embedding(text):
@@ -189,7 +204,6 @@ def convert_to_usd(amount: float, original_currency: str) -> float:
         return amount * rate_usd
 
     except Exception as e:
-        # Optionally, log the error using a logging framework if needed.
-        # For now, we'll just return the original amount.
-        # print(f"Error converting currency from {original_currency} to USD: {e}")
         return amount
+
+
