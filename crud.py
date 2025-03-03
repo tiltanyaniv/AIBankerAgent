@@ -15,6 +15,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 import matplotlib.pyplot as plt
 from sqlalchemy import text
+<<<<<<< HEAD
+=======
+
+>>>>>>> a45b007 (Data Extraction and Parsing for DBscan)
 
 # Load OpenAI API Key from .env
 load_dotenv()
@@ -204,6 +208,13 @@ def convert_to_usd(amount: float, original_currency: str) -> float:
         return amount * rate_usd
 
     except Exception as e:
+<<<<<<< HEAD
         return amount
 
 
+=======
+        # Optionally, log the error using a logging framework if needed.
+        # For now, we'll just return the original amount.
+        # print(f"Error converting currency from {original_currency} to USD: {e}")
+        return amount
+>>>>>>> a45b007 (Data Extraction and Parsing for DBscan)

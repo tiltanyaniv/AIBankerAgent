@@ -6,3 +6,5 @@ openai
 scikit-learn
 geopy
 forex-python
+pandas
+matplotlib

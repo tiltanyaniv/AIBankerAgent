@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js"
   },
-  "author": "Tiltan Yaniv",
+  "author": "Idan Agami and Tiltan Yaniv",
   "license": "MIT",
   "dependencies": {
     "israeli-bank-scrapers": "^5.2.3",
