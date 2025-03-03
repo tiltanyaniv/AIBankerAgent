@@ -88,19 +88,36 @@ from openai import OpenAI
 
 def get_location(description):
     """
-    Uses OpenAI GPT-4o to extract the store location from the transaction description.
+    It asks OpenAI if the transaction was online or physical.
+    If OpenAI says it's not online, then we try to extract a location.
     """
+
     try:
-        client = OpenAI()  # Correct OpenAI API client initialization
+        client = OpenAI()
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Use the correct model name
+            model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an assistant that extracts store locations from transaction descriptions. Only return the city name or the country name, nothing else."},
-                {"role": "user", "content": f"Where is the store location for this transaction: '{description}'? Provide only the city name or the country name. Do not include any extra words or explanations."}
+                {"role": "system", "content": "You are an assistant that analyzes transaction descriptions and determines if the purchase was made online or in a physical location."},
+                {"role": "user", "content": f"Was the following purchase made online or in a physical store? Description: '{description}' Please respond with either 'Online Purchase' or 'Physical Store'."}
             ]
         )
-        return response.choices[0].message.content.strip()
+        result = response.choices[0].message.content.strip()
+
+        if result == "Online Purchase":
+            return "Online Purchase"
+        elif result == "Physical Store":
+            # After determining it's a physical store, we can follow up with location detection
+            location_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are an assistant that extracts store locations from transaction descriptions. Only return the city name or the country name (whichever is available). No explanations, just the location."},
+                    {"role": "user", "content": f"Where is the store location for this transaction: '{description}'?"}
+                ]
+            )
+            return location_response.choices[0].message.content.strip()
+
     except Exception as e:
+        print(f"Error detecting location: {e}")
         return "Unknown"
     
 
