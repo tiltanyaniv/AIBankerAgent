@@ -4,9 +4,12 @@ from sqlalchemy.orm import Session
 from models import Transaction  # Assumes Transaction model is defined appropriately
 from datetime import datetime
 from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+from sklearn.neighbors import NearestNeighbors
+from sklearn.cluster import DBSCAN
 
 # Step 1: Query the required data from the database.
-def get_transactions_for_clustering(db: Session) -> pd.DataFrame:
+def get_transactions_for_clustering(db: Session, user_id: int) -> pd.DataFrame:
     """
     Queries the database for transactions needed for DBSCAN.
     Selects the following columns:
@@ -24,7 +27,7 @@ def get_transactions_for_clustering(db: Session) -> pd.DataFrame:
         Transaction.location_lon,
         Transaction.charged_amount,
         Transaction.date
-    )
+    ).filter(Transaction.user_id == user_id)
     # Using the query's statement and the DB's engine binding to load into a DataFrame
     df = pd.read_sql(query.statement, db.bind)
     return df
@@ -110,7 +113,7 @@ def build_feature_matrix(df: pd.DataFrame):
         extra_features = np.array([lat, lon, amount, year, month, day], dtype=np.float32)
         combined = np.concatenate([emb, extra_features])
         feature_list.append(combined)
-        transaction_ids.append(row['id'])
+
 
     # Stack all vectors into a matrix.
     X = np.vstack(feature_list)
@@ -126,3 +129,106 @@ def scale_features(X: np.array):
     X_scaled = scaler.fit_transform(X)
     return X_scaled
 
+
+
+ 
+def plot_k_distance(X, k=5):
+    """
+    Computes and plots the k-distance graph (distance to the kth nearest neighbor) for each point in X.
+    
+    Parameters:
+      X (numpy.ndarray): Feature matrix.
+      k (int): Which nearest neighbor distance to use (e.g., 5 means the 5th nearest neighbor, excluding self).
+      
+    Returns:
+      kth_distances (numpy.ndarray): Sorted distances of the kth neighbor for each sample.
+    """
+    # When using NearestNeighbors, the first neighbor is the point itself (distance 0).
+    nbrs = NearestNeighbors(n_neighbors=k+1)  # k+1 because self is included
+    nbrs.fit(X)
+    distances, _ = nbrs.kneighbors(X)
+    # The kth nearest neighbor (excluding self) is at index k.
+    kth_distances = np.sort(distances[:, k])
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(kth_distances, marker="o", linestyle="--")
+    plt.xlabel("Samples sorted by kth neighbor distance")
+    plt.ylabel(f"Distance to {k}th nearest neighbor")
+    plt.title("K-Distance Graph for DBSCAN eps selection")
+    plt.show()
+    
+    return kth_distances
+
+def run_dbscan(X_scaled, eps, min_samples):
+    """
+    Runs DBSCAN clustering on the scaled feature matrix.
+    
+    Parameters:
+      X_scaled (numpy.ndarray): Scaled feature matrix.
+      eps (float): The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+      min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
+    
+    Returns:
+      labels (numpy.ndarray): Cluster labels for each sample.
+    """
+    db = DBSCAN(eps=eps, min_samples=min_samples)
+    labels = db.fit_predict(X_scaled)
+    return labels
+
+def analyze_dbscan(labels):
+    """
+    Prints the cluster labels and number of noise points.
+    
+    Parameters:
+      labels (numpy.ndarray): Cluster labels returned by DBSCAN.
+      
+    Returns:
+      unique_labels (set): The unique cluster labels.
+      noise_count (int): The count of noise points (where label == -1).
+    """
+    unique_labels = set(labels)
+    noise_count = np.sum(labels == -1)
+    return unique_labels, noise_count
+
+def analyze_transactions_for_user(db: Session, user_id: int, eps: float = 0.5, min_samples: int = 5):
+    """
+    Analyzes transactions for a specific user using DBSCAN clustering and returns only the anomalous transactions.
+    
+    Parameters:
+      db (Session): SQLAlchemy session.
+      user_id (int): The ID of the user whose transactions will be analyzed.
+      eps (float): The maximum distance between two samples for one to be considered as in the neighborhood of the other.
+      min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
+    
+    Returns:
+      dict: A dictionary containing the user_id, count of noise points, and a list of anomalous transaction details.
+    """
+    # Step 1: Get transactions for the specified user.
+    df = get_transactions_for_clustering(db, user_id)
+    if df.empty:
+        return {"message": f"No transactions found for user {user_id}"}
+    
+    # Step 2: Parse the DataFrame (convert embeddings, date fields, etc.).
+    df = parse_transactions_df(df)
+    
+    # Step 3: Build the feature matrix and retrieve transaction IDs.
+    X, transaction_ids = build_feature_matrix(df)
+    
+    # Step 4: Scale the features.
+    X_scaled = scale_features(X)
+    
+    # Step 5: Run DBSCAN clustering.
+    labels = run_dbscan(X_scaled, eps=eps, min_samples=min_samples)
+    
+    # Step 6: Filter transactions that are anomalies (label == -1).
+    anomaly_indices = [i for i, lab in enumerate(labels) if lab == -1]
+    anomalous_transactions = df.iloc[anomaly_indices]
+    anomalous_transactions.drop(columns=["vector_embedding", "parsed_embedding"], inplace=True)
+    # Optionally, convert any numpy data types in the anomalies for JSON serialization.
+    anomalies_list = anomalous_transactions.to_dict(orient="records")
+    
+    return {
+        "user_id": user_id,
+        "noise_count": int(sum(1 for lab in labels if lab == -1)),
+        "anomalous_transactions": anomalies_list
+    }
