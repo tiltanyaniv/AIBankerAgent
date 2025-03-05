@@ -5,3 +5,5 @@ transactions.json
 bank.db
 __pycache__/
 .pytest_cache/
+.pytest_cache
+.coverage
