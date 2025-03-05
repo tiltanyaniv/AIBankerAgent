@@ -8,3 +8,4 @@ geopy
 forex-python
 pandas
 matplotlib
+pytest-cov
