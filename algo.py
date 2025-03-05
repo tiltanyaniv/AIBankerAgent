@@ -3,6 +3,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 from models import Transaction  # Assumes Transaction model is defined appropriately
 from datetime import datetime
+from sklearn.preprocessing import StandardScaler
 
 # Step 1: Query the required data from the database.
 def get_transactions_for_clustering(db: Session) -> pd.DataFrame:
@@ -73,27 +74,57 @@ def parse_transactions_df(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
-# Example usage:
-if __name__ == "__main__":
-    # Assuming you have an active SQLAlchemy Session named `db`
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    engine = create_engine("sqlite:///my_database.db")  # update with your DB URL
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-
-    # 1. Query the transactions for clustering.
-    transactions_df = get_transactions_for_clustering(db)
-    print("Original data sample:")
-    print(transactions_df.head())
-
-    # 2. Parse the fields.
-    transactions_df = parse_transactions_df(transactions_df)
-    print("\nParsed data sample:")
-    print(transactions_df.head())
+def build_feature_matrix(df: pd.DataFrame):
+    """
+    Combines various features from the transactions DataFrame into a single feature matrix.
     
-    # Optionally, inspect one parsed embedding:
-    if not transactions_df.empty:
-        print("\nExample parsed embedding shape:",
-              transactions_df.iloc[0]["parsed_embedding"].shape)
+    Expected columns in df:
+      - 'parsed_embedding': a NumPy array representing the transaction embedding.
+      - 'location_lat': float (latitude)
+      - 'location_lon': float (longitude)
+      - 'charged_amount': float
+      - 'id': a transaction identifier (optional, to track which row corresponds to which transaction)
+    
+    This function concatenates the embedding with the numeric features (coordinates and amount).
+    You can modify this to include additional features (like date components) if desired.
+    """
+    if df.empty:
+        return np.array([]), []
+
+    feature_list = []
+    transaction_ids = []  # to track transaction IDs
+
+    for _, row in df.iterrows():
+        emb = row['parsed_embedding']
+        # Get additional numeric features.
+        # Use 0.0 if the coordinate is missing.
+        lat = row['location_lat'] if pd.notnull(row['location_lat']) else 0.0
+        lon = row['location_lon'] if pd.notnull(row['location_lon']) else 0.0
+        amount = row['charged_amount']
+        # Date features
+        year = row['year']
+        month = row['month']
+        day = row['day']
+
+
+        # Concatenate all these features into one vector.
+        # You might decide on the order: embedding first, then the additional features.
+        extra_features = np.array([lat, lon, amount, year, month, day], dtype=np.float32)
+        combined = np.concatenate([emb, extra_features])
+        feature_list.append(combined)
+        transaction_ids.append(row['id'])
+
+    # Stack all vectors into a matrix.
+    X = np.vstack(feature_list)
+    return X, transaction_ids
+
+def scale_features(X: np.array):
+    """
+    Scales the feature matrix X using StandardScaler.
+    
+    Returns the scaled feature matrix.
+    """
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    return X_scaled
+
