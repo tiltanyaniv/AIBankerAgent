@@ -49,7 +49,7 @@ def parse_transactions_df(df: pd.DataFrame) -> pd.DataFrame:
       - Converts vector_embedding to a NumPy array (new column: parsed_embedding)
       - Ensures location_lat and location_lon are floats
       - Converts charged_amount to float
-      - Converts date to datetime and extracts year, month, day, hour, and weekday
+      - Converts date to datetime and extracts year, month, and day
     Returns the updated DataFrame.
     """
     # Parse vector_embedding column into a NumPy array.
@@ -69,8 +69,6 @@ def parse_transactions_df(df: pd.DataFrame) -> pd.DataFrame:
     df["year"] = df["date"].dt.year
     df["month"] = df["date"].dt.month
     df["day"] = df["date"].dt.day
-    df["hour"] = df["date"].dt.hour
-    df["weekday"] = df["date"].dt.weekday  # 0=Monday, 6=Sunday
     
     return df
 
