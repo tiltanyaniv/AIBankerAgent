@@ -21,6 +21,7 @@ def get_transactions_for_clustering(db: Session, user_id: int) -> pd.DataFrame:
     Returns a Pandas DataFrame.
     """
     query = db.query(
+        Transaction.id,
         Transaction.user_id,
         Transaction.vector_embedding,
         Transaction.location_lat,
@@ -113,6 +114,7 @@ def build_feature_matrix(df: pd.DataFrame):
         extra_features = np.array([lat, lon, amount, year, month, day], dtype=np.float32)
         combined = np.concatenate([emb, extra_features])
         feature_list.append(combined)
+        transaction_ids.append(row['id'])
 
 
     # Stack all vectors into a matrix.
@@ -226,9 +228,12 @@ def analyze_transactions_for_user(db: Session, user_id: int, eps: float = 0.5, m
     anomalous_transactions.drop(columns=["vector_embedding", "parsed_embedding"], inplace=True)
     # Optionally, convert any numpy data types in the anomalies for JSON serialization.
     anomalies_list = anomalous_transactions.to_dict(orient="records")
+
+    anomaly_ids = [transaction_ids[i] for i in anomaly_indices]
     
     return {
         "user_id": user_id,
         "noise_count": int(sum(1 for lab in labels if lab == -1)),
-        "anomalous_transactions": anomalies_list
+        "anomalous_transactions": anomalies_list,
+        "anomalous_transaction_ids": anomaly_ids
     }
