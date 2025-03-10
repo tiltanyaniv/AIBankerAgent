@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 import app
 import crud
+import algo  # We patch functions in algo as needed
 
 client = TestClient(app.app)
 
@@ -25,19 +26,17 @@ def fake_get_db():
     finally:
         db.close()
 
-# Override get_db dependency for testing endpoints that need a DB.
+# Override get_db dependency for endpoints that need a DB.
 app.app.dependency_overrides[app.get_db] = fake_get_db
 
 # --- Test for root endpoint ---
 def test_root():
     response = client.get("/")
-    # If your app does not define a root route, expect 404.
-    # If you add a root route in the future, update this assertion accordingly.
+    # If no root route is defined, we expect a 404.
     assert response.status_code == 404
 
 # --- Test for /users/ endpoint ---
 def fake_create_user(db: Session, username: str):
-    # Return a fake user dict (or object with attributes)
     return {"id": 1, "username": username}
 
 def test_create_user(monkeypatch):
@@ -52,12 +51,10 @@ def test_create_user(monkeypatch):
 def test_create_user_invalid_payload():
     # Missing required field "username"
     response = client.post("/users/", json={})
-    # Expect FastAPI to return a 422 Unprocessable Entity error.
     assert response.status_code == 422
 
 # --- Test for /load-transactions/ endpoint ---
 def fake_save_transactions_from_json(db: Session, file_path: str = None):
-    # For testing, simulate a successful load.
     return {"status": "success", "message": "Transactions loaded successfully."}
 
 def test_load_transactions(monkeypatch):
@@ -69,22 +66,20 @@ def test_load_transactions(monkeypatch):
     assert "Transactions loaded" in data["message"]
 
 def fake_save_transactions_error(db: Session, file_path: str = None):
-    # Simulate an error condition.
     return {"status": "error", "message": "Load failed."}
 
 def test_load_transactions_error(monkeypatch):
     monkeypatch.setattr(crud, "save_transactions_from_json", fake_save_transactions_error)
     response = client.post("/load-transactions/")
-    # Expect the endpoint to return a 500 error when status is "error".
+    # Expect the endpoint to return a 500 error when the status is "error".
     assert response.status_code == 500
     data = response.json()
     assert "Load failed." in data["detail"]
 
 # --- Test for /set-credentials endpoint ---
 def test_set_credentials(monkeypatch, tmp_path):
-    # Use a temporary file to simulate .env
+    # Use a temporary file to simulate the .env file.
     temp_env = tmp_path / ".env"
-    # Monkeypatch open so that writes go to our temp file.
     def fake_open(file, mode):
         return temp_env.open(mode)
     monkeypatch.setattr("builtins.open", fake_open)
@@ -100,18 +95,21 @@ def test_set_credentials(monkeypatch, tmp_path):
     assert "BANK_PASSWORD=testpass" in content
 
 def test_set_credentials_invalid_payload():
-    # Missing "password"
+    # Missing "password" field.
     response = client.post("/set-credentials", json={"username": "testuser"})
-    # Expect a 422 validation error from FastAPI.
     assert response.status_code == 422
 
 # --- Test for /analyze-transactions/{user_id} endpoint ---
-def fake_analyze_transactions(db: Session, user_id: int):
+# Define a fake implementation for analyze_transactions_for_user.
+def fake_analyze_transactions(db: Session, user_id: int, eps: float = 0.5, min_samples: int = 5):
     return {"user_id": user_id, "analysis": "dummy analysis"}
 
 def test_analyze_transactions(monkeypatch):
-    # Inject fake_analyze_transactions into the crud module's namespace.
-    monkeypatch.setitem(crud.__dict__, "analyze_transactions", fake_analyze_transactions)
+    # Patch the function in the algo module (the endpoint calls this function).
+    if not hasattr(algo, "analyze_transactions_for_user"):
+        setattr(algo, "analyze_transactions_for_user", fake_analyze_transactions)
+    else:
+        monkeypatch.setattr(algo, "analyze_transactions_for_user", fake_analyze_transactions)
     response = client.get("/analyze-transactions/1")
     assert response.status_code == 200
     data = response.json()
@@ -119,10 +117,13 @@ def test_analyze_transactions(monkeypatch):
     assert data["analysis"] == "dummy analysis"
 
 def test_analyze_transactions_error(monkeypatch):
-    # Simulate an exception in analyze_transactions.
-    def fake_analyze_error(db: Session, user_id: int):
+    # Define a fake error function.
+    def fake_analyze_error(db: Session, user_id: int, eps: float = 0.5, min_samples: int = 5):
         raise Exception("Test error")
-    monkeypatch.setitem(crud.__dict__, "analyze_transactions", fake_analyze_error)
+    if not hasattr(algo, "analyze_transactions_for_user"):
+        setattr(algo, "analyze_transactions_for_user", fake_analyze_error)
+    else:
+        monkeypatch.setattr(algo, "analyze_transactions_for_user", fake_analyze_error)
     response = client.get("/analyze-transactions/1")
     assert response.status_code == 500
     data = response.json()
