@@ -98,24 +98,24 @@ def visualize_transactions(user_id: int, eps: float = 0.5, min_samples: int = 5,
     runs DBSCAN to get cluster labels, and returns the plot as an image.
     """
     try:
-        # 1. Query transactions for the user and parse the DataFrame.
+        # Query transactions for the user and parse the DataFrame.
         df = algo.get_transactions_for_clustering(db, user_id)
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No transactions found for user {user_id}")
         df = algo.parse_transactions_df(df)  # Ensure this function converts raw embeddings and extracts date parts
         
-        # 2. Build feature matrix and scale it.
+        # Build feature matrix and scale it.
         X, transaction_ids = algo.build_feature_matrix(df)
         X_scaled = algo.scale_features(X)
         
-        # 3. Run DBSCAN to get cluster labels.
+        # Run DBSCAN to get cluster labels.
         labels = algo.run_dbscan(X_scaled, eps=eps, min_samples=min_samples)
         
-        # 4. Reduce dimensionality to 2D using PCA.
+        # Reduce dimensionality to 2D using PCA.
         pca = PCA(n_components=2)
         X_pca = pca.fit_transform(X_scaled)
         
-        # 5. Create scatter plot.
+        # Create scatter plot.
         plt.figure(figsize=(10, 8))
         scatter = plt.scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap="viridis", alpha=0.8)
         plt.title(f"Transaction Clusters for User {user_id}")
@@ -123,7 +123,7 @@ def visualize_transactions(user_id: int, eps: float = 0.5, min_samples: int = 5,
         plt.ylabel("Principal Component 2")
         plt.colorbar(scatter, label="Cluster Label")
         
-        # 6. Save the plot to a BytesIO buffer.
+        # Save the plot to a BytesIO buffer.
         buf = io.BytesIO()
         plt.savefig(buf, format="png")
         plt.close()  # Close the figure to free memory
