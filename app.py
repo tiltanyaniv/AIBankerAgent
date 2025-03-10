@@ -8,16 +8,12 @@ from pydantic import BaseModel
 import datetime
 import os
 import pandas as pd
-
 import io
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from fastapi.responses import StreamingResponse
-
 from sklearn.decomposition import PCA
-
-
 from database import SessionLocal
 
 
@@ -83,9 +79,9 @@ def set_credentials(credentials: Credentials):
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.get("/analyze-transactions/{user_id}")
-def analyze_transactions(user_id: int, eps: float = 0.5, min_samples: int = 5, db: Session = Depends(get_db)):
+def analyze_transactions(user_id: int, grid_search: bool = True, eps: float = 0.5, min_samples: int = 5, db: Session = Depends(get_db)):
     try:
-        result = algo.analyze_transactions_for_user(db, user_id, eps, min_samples)
+        result = algo.analyze_transactions_for_user(db, user_id, grid_search=grid_search, default_eps=eps, default_min_samples=min_samples)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

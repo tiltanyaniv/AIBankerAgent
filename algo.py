@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import DBSCAN
+from sklearn.metrics import silhouette_score
 
 # Step 1: Query the required data from the database.
 def get_transactions_for_clustering(db: Session, user_id: int) -> pd.DataFrame:
@@ -192,48 +193,125 @@ def analyze_dbscan(labels):
     noise_count = np.sum(labels == -1)
     return unique_labels, noise_count
 
-def analyze_transactions_for_user(db: Session, user_id: int, eps: float = 0.5, min_samples: int = 5):
+def analyze_transactions_for_user(db: Session, user_id: int, grid_search: bool = True,
+                                  eps_range: np.ndarray = None, min_samples_range: list = None,
+                                  default_eps: float = 0.5, default_min_samples: int = 5):
     """
-    Analyzes transactions for a specific user using DBSCAN clustering and returns only the anomalous transactions.
-    
+    Analyzes transactions for a specific user using DBSCAN clustering.
+    If grid_search is True, it will first search for the best eps and min_samples
+    parameters (using a silhouette score) and then run DBSCAN with those parameters.
+    Returns only the anomalous transactions (noise points, label == -1).
+
     Parameters:
       db (Session): SQLAlchemy session.
-      user_id (int): The ID of the user whose transactions will be analyzed.
-      eps (float): The maximum distance between two samples for one to be considered as in the neighborhood of the other.
-      min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
-    
+      user_id (int): The user id whose transactions are to be analyzed.
+      grid_search (bool): Whether to run grid search for best parameters.
+      eps_range (np.ndarray): Optional range of eps values to try (default: np.linspace(50, 80, 11)).
+      min_samples_range (list): Optional list of min_samples values to try (default: [2, 3, 4]).
+      default_eps (float): Fallback eps value if grid search finds no valid parameters.
+      default_min_samples (int): Fallback min_samples value if grid search finds no valid parameters.
+      
     Returns:
-      dict: A dictionary containing the user_id, count of noise points, and a list of anomalous transaction details.
+      dict: A dictionary containing:
+            - user_id,
+            - the eps and min_samples used,
+            - noise_count,
+            - anomalous_transactions (details),
+            - anomalous_transaction_ids,
+            - grid_search_results (all combinations evaluated).
     """
-    # Step 1: Get transactions for the specified user.
+    # Get transactions for the specified user.
     df = get_transactions_for_clustering(db, user_id)
     if df.empty:
         return {"message": f"No transactions found for user {user_id}"}
     
-    # Step 2: Parse the DataFrame (convert embeddings, date fields, etc.).
+    # Parse the DataFrame (convert embeddings, date fields, etc.).
     df = parse_transactions_df(df)
     
-    # Step 3: Build the feature matrix and retrieve transaction IDs.
+    # Build the feature matrix and retrieve transaction IDs.
     X, transaction_ids = build_feature_matrix(df)
     
-    # Step 4: Scale the features.
+    # Scale the features.
     X_scaled = scale_features(X)
     
-    # Step 5: Run DBSCAN clustering.
+    # Determine DBSCAN parameters.
+    if grid_search:
+        if eps_range is None:
+            eps_range = np.linspace(70, 100, 11)
+        if min_samples_range is None:
+            min_samples_range = [2, 7, 12]
+        
+        best_params, best_score, all_results = find_best_dbscan_params(X_scaled, eps_range, min_samples_range)
+        if best_params is None:
+            eps, min_samples = default_eps, default_min_samples
+            grid_search_results = None
+        else:
+            eps, min_samples = best_params
+            grid_search_results = {str(k): v for k, v in all_results.items()}
+    else:
+        eps, min_samples = default_eps, default_min_samples
+        grid_search_results = None
+    
+    # Run DBSCAN with the chosen parameters.
     labels = run_dbscan(X_scaled, eps=eps, min_samples=min_samples)
     
-    # Step 6: Filter transactions that are anomalies (label == -1).
+    # Filter transactions that are anomalies (label == -1).
     anomaly_indices = [i for i, lab in enumerate(labels) if lab == -1]
-    anomalous_transactions = df.iloc[anomaly_indices]
+    anomalous_transactions = df.iloc[anomaly_indices].copy()
     anomalous_transactions.drop(columns=["vector_embedding", "parsed_embedding"], inplace=True)
-    # Optionally, convert any numpy data types in the anomalies for JSON serialization.
     anomalies_list = anomalous_transactions.to_dict(orient="records")
-
     anomaly_ids = [transaction_ids[i] for i in anomaly_indices]
     
-    return {
+    result = {
         "user_id": user_id,
-        "noise_count": int(sum(1 for lab in labels if lab == -1)),
-        "anomalous_transactions": anomalies_list,
-        "anomalous_transaction_ids": anomaly_ids
+         "noise_count": int(sum(1 for lab in labels if lab == -1)),
+         "anomalous_transactions": anomalies_list,
+         "anomalous_transaction_ids": anomaly_ids,
+         "eps_used": eps,
+         "min_samples_used": min_samples,
     }
+    
+    return result
+
+def find_best_dbscan_params(X_scaled, eps_values, min_samples_values):
+    """
+    Finds the best eps and min_samples for DBSCAN based on the silhouette score.
+    
+    Parameters:
+      X_scaled (numpy.ndarray): The scaled feature matrix.
+      eps_values (list or numpy.ndarray): A range of eps values to try.
+      min_samples_values (list or numpy.ndarray): A range of min_samples values to try.
+    
+    Returns:
+      best_params (tuple): The best (eps, min_samples) combination.
+      best_silhouette (float): The silhouette score for the best parameters.
+      results (dict): Dictionary of all parameter combinations with their silhouette scores.
+    """
+    best_params = None
+    best_silhouette = -1  # silhouette score ranges from -1 to 1
+    results = {}
+    
+    for eps in eps_values:
+        for min_samples in min_samples_values:
+            db = DBSCAN(eps=eps, min_samples=min_samples)
+            labels = db.fit_predict(X_scaled)
+            
+            # Filter out noise points for silhouette score calculation.
+            core_mask = labels != -1
+            
+            # If there is only one cluster or no points after filtering, skip this combination.
+            if len(set(labels)) <= 1 or np.sum(core_mask) < 2:
+                results[(eps, min_samples)] = None
+                continue
+            
+            try:
+                score = silhouette_score(X_scaled[core_mask], labels[core_mask])
+                results[(eps, min_samples)] = score
+                if score > best_silhouette:
+                    best_silhouette = score
+                    best_params = (eps, min_samples)
+            except Exception as e:
+                results[(eps, min_samples)] = None
+                continue
+                
+    return best_params, best_silhouette, results
