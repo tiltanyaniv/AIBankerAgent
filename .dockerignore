@@ -1,0 +1,11 @@
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+venv/
+node_modules/
+.env
+bank.db
+.pytest_cache/
+coverage/
