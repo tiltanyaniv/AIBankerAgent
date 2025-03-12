@@ -7,7 +7,7 @@ dotenv.config();
 (async function () {
   try {
     const options = {
-      companyId: CompanyTypes.otsarHahayal,
+      companyId: CompanyTypes.leumi,
       startDate: new Date('2025-01-01'),
       combineInstallments: false,
       showBrowser: true,
