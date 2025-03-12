@@ -96,14 +96,12 @@ def set_transData(data: TransData):
         with open(file_path, "r") as f:
             content = f.read()
 
-        # Replace the companyId line (e.g., "companyId: CompanyTypes.otsarHahayal")
         content = re.sub(
             r"companyId:\s*CompanyTypes\.[A-Za-z0-9_]+",
             f"companyId: CompanyTypes.{data.company_id}",
             content
         )
         
-        # Replace the startDate line (e.g., "startDate: new Date('2025-01-01')")
         content = re.sub(
             r"startDate:\s*new Date\('[^']+'\)",
             f"startDate: new Date('{data.start_date}')",
