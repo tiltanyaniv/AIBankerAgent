@@ -86,43 +86,62 @@ def analyze_transactions(user_id: int, grid_search: bool = True, eps: float = 0.
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/visualize-transactions/{user_id}")
-def visualize_transactions(user_id: int, eps: float = 0.5, min_samples: int = 5, db: Session = Depends(get_db)):
+def visualize_transactions(
+    user_id: int,
+    grid_search: bool = True,
+    eps: float = 0.5,
+    min_samples: int = 5,
+    db: Session = Depends(get_db)
+):
     """
-    Generates a 2D scatter plot of the transactions for a specific user.
-    It builds the feature matrix, scales it, reduces dimensionality with PCA,
-    runs DBSCAN to get cluster labels, and returns the plot as an image.
+    Visualizes the clustering of transactions for a given user by:
+      1. Running analyze_transactions_for_user to automatically determine the best DBSCAN parameters.
+      2. Reprocessing the user's transactions, running DBSCAN with those parameters, and reducing dimensions via PCA.
+      3. Returning a scatter plot (PNG image) of the clusters.
     """
     try:
-        # Query transactions for the user and parse the DataFrame.
+        # Run the analysis function to get the best parameters.
+        analysis_result = algo.analyze_transactions_for_user(
+            db,
+            user_id,
+            grid_search=grid_search,
+            default_eps=eps,
+            default_min_samples=min_samples
+        )
+        
+        # Extract the best parameters from the analysis result.
+        best_eps = analysis_result.get("eps_used", eps)
+        best_min_samples = analysis_result.get("min_samples_used", min_samples)
+        
+        # Retrieve and process the user's transactions.
         df = algo.get_transactions_for_clustering(db, user_id)
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No transactions found for user {user_id}")
-        df = algo.parse_transactions_df(df)  # Ensure this function converts raw embeddings and extracts date parts
-        
-        # Build feature matrix and scale it.
+        df = algo.parse_transactions_df(df)
         X, transaction_ids = algo.build_feature_matrix(df)
         X_scaled = algo.scale_features(X)
         
-        # Run DBSCAN to get cluster labels.
-        labels = algo.run_dbscan(X_scaled, eps=eps, min_samples=min_samples)
+        # Run DBSCAN with the best parameters.
+        labels = algo.run_dbscan(X_scaled, eps=best_eps, min_samples=best_min_samples)
         
-        # Reduce dimensionality to 2D using PCA.
+        # Use PCA to reduce the feature space to 2 dimensions.
         pca = PCA(n_components=2)
         X_pca = pca.fit_transform(X_scaled)
         
-        # Create scatter plot.
+        # Generate a scatter plot.
         plt.figure(figsize=(10, 8))
         scatter = plt.scatter(X_pca[:, 0], X_pca[:, 1], c=labels, cmap="viridis", alpha=0.8)
-        plt.title(f"Transaction Clusters for User {user_id}")
+        plt.title(f"Transaction Clusters for User {user_id}\n(eps={best_eps:.2f}, min_samples={best_min_samples})")
         plt.xlabel("Principal Component 1")
         plt.ylabel("Principal Component 2")
         plt.colorbar(scatter, label="Cluster Label")
         
-        # Save the plot to a BytesIO buffer.
+        # Save plot to a BytesIO buffer.
         buf = io.BytesIO()
         plt.savefig(buf, format="png")
-        plt.close()  # Close the figure to free memory
+        plt.close()  # Clean up the plot
         buf.seek(0)
         
         return StreamingResponse(buf, media_type="image/png")
