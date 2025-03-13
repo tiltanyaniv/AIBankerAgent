@@ -1,6 +1,6 @@
 FROM python:3.11
 
-# Install necessary system dependencies
+# Install necessary system dependencies for both Python and Node.js
 RUN apt-get update && apt-get install -y \
     nodejs npm \
     libnss3 \
@@ -13,6 +13,10 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libpango-1.0-0 \
     libasound2 \
+    libxdamage1 \  
+    libxshmfence1 \
+    libxcursor1 \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
@@ -32,6 +36,10 @@ RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . .
+
+# Set environment variable for Puppeteer
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Expose the port that the app will run on
 EXPOSE 3100
