@@ -13,10 +13,11 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libpango-1.0-0 \
     libasound2 \
-    libxdamage1 \  
+    libxdamage1 \
     libxshmfence1 \
     libxcursor1 \
     fonts-liberation \
+    chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
@@ -39,7 +40,7 @@ COPY . .
 
 # Set environment variable for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Expose the port that the app will run on
 EXPOSE 3100
