@@ -7,10 +7,11 @@ dotenv.config();
 (async function () {
   try {
     const options = {
-      companyId: CompanyTypes.leumi,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      companyId: CompanyTypes.max,
       startDate: new Date('2025-01-01'),
       combineInstallments: false,
-      showBrowser: true,
+      showBrowser: false,
     };
     
     const credentials = {
