@@ -7,11 +7,18 @@ dotenv.config();
 (async function () {
   try {
     const options = {
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      headless: 'new',  // Ensures true headless mode
+      args: [
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-software-rasterizer',
+        '--no-sandbox',
+        '--disable-setuid-sandbox'
+      ],
       companyId: CompanyTypes.leumi,
       startDate: new Date('2025-01-01'),
       combineInstallments: false,
-      showBrowser: true,
+      showBrowser: false,
     };
     
     const credentials = {
