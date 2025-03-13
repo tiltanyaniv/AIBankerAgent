@@ -8,10 +8,10 @@ dotenv.config();
   try {
     const options = {
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      companyId: CompanyTypes.max,
+      companyId: CompanyTypes.leumi,
       startDate: new Date('2025-01-01'),
       combineInstallments: false,
-      showBrowser: false,
+      showBrowser: true,
     };
     
     const credentials = {
@@ -45,6 +45,7 @@ dotenv.config();
       throw new Error(scrapeResult.errorType);
     }
   } catch (e) {
-    console.error(`Scraping failed for the following reason: ${e.message}`);
+    console.error("Scraping failed with error:", e);  // Print full error object
+    if (e.stack) console.error("Stack trace:", e.stack);
   }
 })();
