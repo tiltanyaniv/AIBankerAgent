@@ -82,6 +82,42 @@ def set_credentials(credentials: Credentials):
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
+
+@app.get("/get-credentials")
+def get_credentials():
+    """
+    Retrieves BANK_USERNAME and BANK_PASSWORD from the environment variables.
+    """
+    try:
+        username = os.getenv("BANK_USERNAME", "Not set")
+        password = os.getenv("BANK_PASSWORD", "Not set")
+
+        return {"BANK_USERNAME": username, "BANK_PASSWORD": password}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@app.get("/get-transData")
+def get_transData():
+    """
+    Retrieves companyId and startDate from index.js.
+    """
+    try:
+        file_path = "index.js"  # Adjust the path if necessary
+        with open(file_path, "r") as f:
+            content = f.read()
+
+        company_id_match = re.search(r"companyId:\s*CompanyTypes\.([A-Za-z0-9_]+)", content)
+        start_date_match = re.search(r"startDate:\s*new Date\('([^']+)'\)", content)
+
+        company_id = company_id_match.group(1) if company_id_match else "Not found"
+        start_date = start_date_match.group(1) if start_date_match else "Not found"
+
+        return {"company_id": company_id, "start_date": start_date}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 class TransData(BaseModel):
     company_id: str   
     start_date: str   
