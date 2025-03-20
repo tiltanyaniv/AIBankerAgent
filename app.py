@@ -97,17 +97,24 @@ def set_credentials(credentials: Credentials):
 @app.get("/get-credentials")
 def get_credentials():
     """
-    Retrieves BANK_USERNAME and BANK_PASSWORD from the environment variables.
+    Retrieves BANK_USERNAME and BANK_PASSWORD from index.js.
     """
     try:
-        username = os.getenv("BANK_USERNAME", "Not set")
-        password = os.getenv("BANK_PASSWORD", "Not set")
-
+        file_path = "index.js"  # Adjust if index.js is located elsewhere
+        with open(file_path, "r") as f:
+            content = f.read()
+        
+        # Use regex to extract the credentials from the file
+        username_match = re.search(r'let\s+BANK_USERNAME\s*=\s*"([^"]+)"', content)
+        password_match = re.search(r'let\s+BANK_PASSWORD\s*=\s*"([^"]+)"', content)
+        
+        username = username_match.group(1) if username_match else "Not set"
+        password = password_match.group(1) if password_match else "Not set"
+        
         return {"BANK_USERNAME": username, "BANK_PASSWORD": password}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 @app.get("/get-transData")
 def get_transData():
