@@ -166,37 +166,45 @@ def set_transData(data: TransData):
 @app.post("/run-transaction")
 def run_transaction():
     """
-    Runs the index.js script using Node.js and provides detailed error logs if something goes wrong.
+    Runs the index.js script using Node.js and provides detailed logs if something goes wrong.
     """
     try:
         # Run index.js using Node.js
         result = subprocess.run(
             ["node", "index.js"],
             capture_output=True,
-            text=True,
-            check=True
+            text=True
         )
+
+        # Always print stdout and stderr to the server logs for debugging
+        print("=== run_transaction: STDOUT ===")
+        print(result.stdout)
+        print("=== run_transaction: STDERR ===")
+        print(result.stderr)
+
+        # If Node.js returns a non-zero exit code, raise an error but still return logs
+        if result.returncode != 0:
+            error_details = {
+                "returncode": result.returncode,
+                "cmd": result.args,
+                "stdout": result.stdout,
+                "stderr": result.stderr
+            }
+            print("Detailed error information:", error_details)
+            raise HTTPException(status_code=500, detail=f"Error running index.js: {error_details}")
+
+        # If everything is OK, return the logs
         return {
             "status": "success",
             "stdout": result.stdout,
             "stderr": result.stderr
         }
-    except subprocess.CalledProcessError as e:
-        # Collect detailed error information
-        error_details = {
-            "returncode": e.returncode,
-            "cmd": e.cmd,
-            "stdout": e.stdout,
-            "stderr": e.stderr
-        }
-        # Print detailed error info to the console for debugging
-        print("Detailed error information:", error_details)
-        raise HTTPException(status_code=500, detail=f"Error running index.js: {error_details}")
+
     except Exception as e:
         # Log any unexpected errors
         print("An unexpected error occurred:", e)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
+    
 @app.get("/analyze-transactions/{user_id}")
 def analyze_transactions(user_id: int, grid_search: bool = True, eps: float = 0.5, min_samples: int = 5, db: Session = Depends(get_db)):
     try:
