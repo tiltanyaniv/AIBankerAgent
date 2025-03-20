@@ -52,7 +52,21 @@ dotenv.config();
       throw new Error(scrapeResult.errorType);
     }
   } catch (e) {
-    console.error("Scraping failed with error:", e);  // Print full error object
-    if (e.stack) console.error("Stack trace:", e.stack);
+    console.error("Scraping failed with error:", e);
+    console.error("Complete error object:", JSON.stringify(e, Object.getOwnPropertyNames(e)));
+    if (e.response) {
+      console.error("Error response:", e.response);
+      try {
+        console.error("Error response data:", JSON.stringify(e.response.data));
+      } catch (err) {
+        console.error("Error response data:", e.response.data);
+      }
+    }
+    if (e.request) {
+      console.error("Error request:", e.request);
+    }
+    if (e.stack) {
+      console.error("Stack trace:", e.stack);
+    }
   }
 })();
