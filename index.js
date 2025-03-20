@@ -21,9 +21,12 @@ dotenv.config();
       showBrowser: false,
     };
     
+    let BANK_USERNAME = "default_username";
+    let BANK_PASSWORD = "default_password";
+    
     const credentials = {
-      username: process.env.BANK_USERNAME,
-      password: process.env.BANK_PASSWORD,
+      username: BANK_USERNAME,
+      password: BANK_PASSWORD,
     };
 
     const scraper = createScraper(options);

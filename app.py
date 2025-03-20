@@ -65,22 +65,33 @@ def load_transactions(db: Session = Depends(get_db)):
 @app.post("/set-credentials")
 def set_credentials(credentials: Credentials):
     """
-    Save BANK_USERNAME and BANK_PASSWORD to the .env file.
+    Updates the BANK_USERNAME and BANK_PASSWORD values in index.js.
     """
     try:
-        env_file_path = ".env"
-        with open(env_file_path, "w") as env_file:
-            env_file.write(f"BANK_USERNAME={credentials.username}\n")
-            env_file.write(f"BANK_PASSWORD={credentials.password}\n")
+        file_path = "index.js"  # Adjust this if your file is in a different location
+        with open(file_path, "r") as f:
+            content = f.read()
 
-        os.environ["BANK_USERNAME"] = credentials.username
-        os.environ["BANK_PASSWORD"] = credentials.password
+        # Update the BANK_USERNAME variable
+        content, count_username = re.subn(
+            r'(let\s+BANK_USERNAME\s*=\s*")[^"]*(")',
+            r'\1' + credentials.username + r'\2',
+            content
+        )
 
-        return {"status": "success", "message": "Credentials saved successfully."}
+        # Update the BANK_PASSWORD variable
+        content, count_password = re.subn(
+            r'(let\s+BANK_PASSWORD\s*=\s*")[^"]*(")',
+            r'\1' + credentials.password + r'\2',
+            content
+        )
 
+        with open(file_path, "w") as f:
+            f.write(content)
+
+        return {"status": "success", "message": "Credentials updated successfully in index.js."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/get-credentials")
