@@ -155,7 +155,7 @@ def set_transData(data: TransData):
 @app.post("/run-transaction")
 def run_transaction():
     """
-    Runs the index.js script using Node.js.
+    Runs the index.js script using Node.js and provides detailed error logs if something goes wrong.
     """
     try:
         # Run index.js using Node.js
@@ -171,7 +171,20 @@ def run_transaction():
             "stderr": result.stderr
         }
     except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Error running index.js: {e.stderr}")
+        # Collect detailed error information
+        error_details = {
+            "returncode": e.returncode,
+            "cmd": e.cmd,
+            "stdout": e.stdout,
+            "stderr": e.stderr
+        }
+        # Print detailed error info to the console for debugging
+        print("Detailed error information:", error_details)
+        raise HTTPException(status_code=500, detail=f"Error running index.js: {error_details}")
+    except Exception as e:
+        # Log any unexpected errors
+        print("An unexpected error occurred:", e)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 @app.get("/analyze-transactions/{user_id}")
 def analyze_transactions(user_id: int, grid_search: bool = True, eps: float = 0.5, min_samples: int = 5, db: Session = Depends(get_db)):
