@@ -153,7 +153,7 @@ class DummyResponse:
 def test_get_location_online(monkeypatch):
     dummy_client = MagicMock()
     dummy_client.chat.completions.create.return_value = DummyResponse("Online Purchase")
-    monkeypatch.setattr(crud, "OpenAI", lambda: dummy_client)
+    monkeypatch.setattr(crud, "OpenAI", lambda *args, **kwargs: dummy_client)
     result = crud.get_location("Some description")
     assert result == "Online Purchase"
 
@@ -163,15 +163,16 @@ def test_get_location_physical(monkeypatch):
         DummyResponse("Physical Store"),
         DummyResponse("TestCity")
     ]
-    monkeypatch.setattr(crud, "OpenAI", lambda: dummy_client)
+    monkeypatch.setattr(crud, "OpenAI", lambda *args, **kwargs: dummy_client)
     result = crud.get_location("Some description")
     assert result == "TestCity"
 
 def test_get_location_empty_response(monkeypatch):
     dummy_client = MagicMock()
     dummy_client.chat.completions.create.return_value = DummyResponse("")
-    monkeypatch.setattr(crud, "OpenAI", lambda: dummy_client)
+    monkeypatch.setattr(crud, "OpenAI", lambda *args, **kwargs: dummy_client)
     result = crud.get_location("Some description")
+    # When the response is empty, get_location should return None.
     assert result is None
 
 def test_get_location_coordinates_unknown(monkeypatch):
@@ -196,7 +197,7 @@ def test_get_embedding(monkeypatch):
     })
     dummy_client = MagicMock()
     dummy_client.embeddings.create.return_value = DummyEmbeddingResponse
-    monkeypatch.setattr(crud, "openai", type("DummyOpenAI", (), {"OpenAI": lambda self=None: dummy_client}))
+    monkeypatch.setattr(crud, "OpenAI", lambda *args, **kwargs: dummy_client)
     result = crud.get_embedding("Test text")
     np.testing.assert_array_almost_equal(result, np.array(dummy_embedding, dtype=np.float32))
 
@@ -207,7 +208,7 @@ def test_get_embedding_empty(monkeypatch):
     })
     dummy_client = MagicMock()
     dummy_client.embeddings.create.return_value = DummyEmbeddingResponse
-    monkeypatch.setattr(crud, "openai", type("DummyOpenAI", (), {"OpenAI": lambda self=None: dummy_client}))
+    monkeypatch.setattr(crud, "OpenAI", lambda *args, **kwargs: dummy_client)
     result = crud.get_embedding("Test empty")
     np.testing.assert_array_equal(result, np.array([], dtype=np.float32))
 
