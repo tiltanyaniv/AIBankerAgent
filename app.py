@@ -44,6 +44,7 @@ class TransactionCreate(BaseModel):
     date: datetime.datetime
     original_currency: str
 
+#create new user
 @app.post("/users/")
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return crud.create_user(db, user.username)
