@@ -1,0 +1,56 @@
+name: CI/CD - Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # 2. Set up Python environment
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      # 3. Install Python dependencies and run unit tests
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: |
+          pytest
+
+      # 4. (Optional) Set up Node.js if your tests or build require it
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Install Node.js dependencies
+        run: npm install
+
+      # 5. Azure Login - requires AZURE_CREDENTIALS secret in your repo settings.
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 6. Deploy to Azure Container Apps using the source-based build
+      - name: Deploy to Azure Container Apps
+        run: |
+          az containerapp up \
+            --resource-group web-fastapi-aca-rg \
+            --name web-anomalydetection-app \
+            --ingress external \
+            --target-port 3100 \
+            --source .
