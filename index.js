@@ -1,5 +1,5 @@
 import { CompanyTypes, createScraper } from 'israeli-bank-scrapers';
-import dotenv from 'dotenv';
+// import dotenv from 'dotenv';
 import fs from 'fs/promises';
 
 dotenv.config();

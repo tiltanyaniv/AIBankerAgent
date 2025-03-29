@@ -5,6 +5,5 @@ __pycache__/
 *.pyo
 venv/
 node_modules/
-bank.db
 .pytest_cache/
 coverage/

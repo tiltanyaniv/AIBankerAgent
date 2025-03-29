@@ -6,13 +6,13 @@ import openai
 from sqlalchemy.orm import Session
 from models import User, Transaction
 from datetime import datetime
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 from geopy.geocoders import Nominatim
 
 # Load OpenAI API Key from .env
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# load_dotenv()
+# openai.api_key = os.getenv("OPENAI_API_KEY")
 
 from openai import OpenAI
 
@@ -98,7 +98,8 @@ def get_location(description):
     """
 
     try:
-        client = OpenAI()
+        print("OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
+        client = client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -157,7 +158,8 @@ def get_embedding(text):
     """
     Generate an embedding for a given text using OpenAI's updated API.
     """
-    client = openai.OpenAI()  # The new API requires creating a client instance
+    print("OPENAI_API_KEY:", os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # The new API requires creating a client instance
     response = client.embeddings.create(
         model="text-embedding-3-large",  # Use the latest embedding model
         input=[text],  # Ensure input is a list
