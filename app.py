@@ -73,16 +73,23 @@ def set_credentials(credentials: Credentials):
         with open(file_path, "r") as f:
             content = f.read()
 
-        # Update the BANK_USERNAME variable
+        # Update the ID_USERNAME variable
         content, count_username = re.subn(
-            r'(let\s+BANK_USERNAME\s*=\s*")[^"]*(")',
-            r'\1' + credentials.username + r'\2',
+            r'(let\s+ID_USERNAME\s*=\s*")[^"]*(")',
+            r'\1' + credentials.id + r'\2',
             content
         )
 
-        # Update the BANK_PASSWORD variable
+        # Update the CARD 6 DIGITS variable
         content, count_password = re.subn(
-            r'(let\s+BANK_PASSWORD\s*=\s*")[^"]*(")',
+            r'(let\s+CARD6DIGITS\s*=\s*")[^"]*(")',
+            r'\1' + credentials.card6Digits + r'\2',
+            content
+        )
+                
+        # Update the ISRACARD PASSWORD variable
+        content, count_username = re.subn(
+            r'(let\s+ISRACARD_PASSWORD\s*=\s*")[^"]*(")',
             r'\1' + credentials.password + r'\2',
             content
         )
@@ -106,13 +113,15 @@ def get_credentials():
             content = f.read()
         
         # Use regex to extract the credentials from the file
-        username_match = re.search(r'let\s+BANK_USERNAME\s*=\s*"([^"]+)"', content)
-        password_match = re.search(r'let\s+BANK_PASSWORD\s*=\s*"([^"]+)"', content)
+        userid_match = re.search(r'let\s+ID_USERNAME\s*=\s*"([^"]+)"', content)
+        craddigits_match = re.search(r'let\s+CARD6DIGITS\s*=\s*"([^"]+)"', content)
+        password_match = re.search(r'let\s+ISRACARD_PASSWORD\s*=\s*"([^"]+)"', content)
         
-        username = username_match.group(1) if username_match else "Not set"
+        userid = userid_match.group(1) if userid_match else "Not set"
+        craddigits = craddigits_match.group(1) if craddigits_match else "Not set"
         password = password_match.group(1) if password_match else "Not set"
         
-        return {"BANK_USERNAME": username, "BANK_PASSWORD": password}
+        return {"ID_USERNAME": userid, "CARD6DIGITS": craddigits, "ISRACARD_PASSWORD": password}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")

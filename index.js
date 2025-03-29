@@ -15,19 +15,23 @@ import fs from 'fs/promises';
         '--no-sandbox',
         '--disable-setuid-sandbox'
       ],
-      companyId: CompanyTypes.leumi,
+      companyId: CompanyTypes.isracard,
       startDate: new Date('2025-01-01'),
       combineInstallments: false,
       showBrowser: false,
     };
     
-    let BANK_USERNAME = "default_username";
-    let BANK_PASSWORD = "default_password";
+    let ID_USERNAME = "default_ID";
+    let CARD6DIGITS = "default_card6Digits";
+    let ISRACARD_PASSWORD = "default_password"
+    
     
     const credentials = {
-      username: BANK_USERNAME,
-      password: BANK_PASSWORD,
+      id: ID_USERNAME,
+      card6Digits: CARD6DIGITS,
+      password: ISRACARD_PASSWORD
     };
+
 
     const scraper = createScraper(options);
     const scrapeResult = await scraper.scrape(credentials);
