@@ -21,15 +21,12 @@ import fs from 'fs/promises';
       showBrowser: false,
     };
     
-    let ID_USERNAME = "default_ID";
-    let CARD6DIGITS = "default_card6Digits";
-    let ISRACARD_PASSWORD = "default_password"
-    
+    let BANK_USERNAME = "default_username";
+    let BANK_PASSWORD = "default_password";
     
     const credentials = {
-      id: ID_USERNAME,
-      card6Digits: CARD6DIGITS,
-      password: ISRACARD_PASSWORD
+      username: BANK_USERNAME,
+      password: BANK_PASSWORD,
     };
 
 
