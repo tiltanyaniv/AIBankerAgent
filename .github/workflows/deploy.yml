@@ -30,7 +30,7 @@ jobs:
         run: |
           pytest
 
-      # 4. (Optional) Set up Node.js if your tests or build require it
+      #4. Set up Node.js if your tests or build require it
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
